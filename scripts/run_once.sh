@@ -51,8 +51,7 @@ detect_os() {
 
 detect_arch() {
   case "$(uname -m)" in
-    arm64) echo "arm64" ;;
-    aarch64) echo "aarch64" ;;
+    arm64|aarch64) echo "arm64" ;;
     x86_64|amd64) echo "x86_64" ;;
     *) echo "unknown" ;;
   esac
