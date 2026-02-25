@@ -1,0 +1,22 @@
+[project]
+name = "benchmark-workload"
+version = "0.1.0"
+description = "Workload for energy benchmarking"
+requires-python = ">=3.10,<=3.14.2"
+dependencies = [
+    "apache-airflow[celery]==2.7.1",
+]
+
+[tool.poetry]
+name = "benchmark-workload"
+version = "0.1.0"
+description = "Workload for energy benchmarking"
+authors = ["benchmark"]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<=3.14.2"
+apache-airflow = {version = "==2.7.1", extras = ["celery"]}
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

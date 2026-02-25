@@ -151,7 +151,7 @@ if [[ "$MODE" == "cold" ]]; then
   elif [[ "$TOOL" == "uv" ]]; then
     uv cache clean || uv cache clear || true
   elif [[ "$TOOL" == "poetry" ]]; then
-    poetry cache clear pypi --all || poetry cache clear PyPI --all || true
+    poetry cache clear pypi --all --no-interaction || poetry cache clear PyPI --all --no-interaction || true
   fi
 fi
 
