@@ -1,11 +1,15 @@
 param (
     [Parameter(Mandatory=$true)]
+    [ValidateSet("pip","poetry","uv")]
     [string]$Tool,
 
     [Parameter(Mandatory=$true)]
+    [ValidateSet("cold","warm","lock")]
     [string]$Mode,
 
-    [int]$Runs = 5,
+    [int]$Interval = 100,
+
+    [int]$Cooldown = 0,
 
     [string]$PythonBin = "python3.14"
 )
@@ -19,7 +23,8 @@ if (-not (Get-Command wsl -ErrorAction SilentlyContinue)) {
 Write-Host "Launching benchmark inside WSL..."
 Write-Host "Tool: $Tool"
 Write-Host "Mode: $Mode"
-Write-Host "Runs: $Runs"
+Write-Host "Interval: $Interval"
+Write-Host "Cooldown: $Cooldown"
 Write-Host "Python: $PythonBin"
 
 # Convert Windows path to WSL path
@@ -27,7 +32,16 @@ $ProjectPath = wsl wslpath -a (Get-Location)
 
 # Execute inside WSL
 wsl bash -c "
-  cd '$ProjectPath' &&
-  chmod +x scripts/run_multiple.sh &&
-  ./scripts/run_multiple.sh --tool $Tool --mode $Mode --runs $Runs --python $PythonBin
+  set -e
+  cd '$ProjectPath'
+  chmod +x scripts/run_once.sh
+  ./scripts/run_once.sh --tool $Tool --mode $Mode --python $PythonBin --interval $Interval --cooldown $Cooldown
 "
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Benchmark failed inside WSL."
+    exit $LASTEXITCODE
+}
+
+Write-Host ""
+Write-Host "Run completed successfully."

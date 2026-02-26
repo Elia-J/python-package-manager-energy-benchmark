@@ -222,7 +222,7 @@ For Windows users, PowerShell wrapper scripts delegate execution to WSL.
 **`run_once_wsl.ps1`**
 
 ```powershell
-.\scripts\run_once_wsl.ps1 -Tool pip -Mode warm -PythonBin python3.14
+.\scripts\run_once_wsl.ps1 -Tool pip -Mode warm -Interval 100 -Cooldown 0 -PythonBin python3.14
 ```
 
 **`run_multiple_wsl.ps1`**
@@ -231,14 +231,26 @@ For Windows users, PowerShell wrapper scripts delegate execution to WSL.
 .\scripts\run_multiple_wsl.ps1 -Tool uv -Mode cold -Runs 10 -Cooldown 10 -PythonBin python3.14
 ```
 
-| Parameter   | Required | Default | Description               |
-| ----------- | -------- | ------- | ------------------------- |
-| `-Tool`     | Yes      | —       | `pip`, `uv`, or `poetry`  |
-| `-Mode`     | Yes      | —       | `cold`, `warm`, or `lock` |
-| `-Runs`     | No       | `5`     | Number of repetitions     |
-| `-Cooldown` | No       | `60`    | Seconds between runs      |
-| `-Interval` | No       | `100`   | EnergiBridge interval argument |
-| `-PythonBin`| No       | `python3.14` | Python interpreter inside WSL |
+`run_once_wsl.ps1` parameters:
+
+| Parameter    | Required | Default      | Description                         |
+| ------------ | -------- | ------------ | ----------------------------------- |
+| `-Tool`      | Yes      | -            | `pip`, `uv`, or `poetry`            |
+| `-Mode`      | Yes      | -            | `cold`, `warm`, or `lock`           |
+| `-Interval`  | No       | `100`        | EnergiBridge interval argument      |
+| `-Cooldown`  | No       | `0`          | Optional post-run wait (seconds)    |
+| `-PythonBin` | No       | `python3.14` | Python interpreter inside WSL       |
+
+`run_multiple_wsl.ps1` parameters:
+
+| Parameter    | Required | Default      | Description                      |
+| ------------ | -------- | ------------ | -------------------------------- |
+| `-Tool`      | Yes      | -            | `pip`, `uv`, or `poetry`         |
+| `-Mode`      | Yes      | -            | `cold`, `warm`, or `lock`        |
+| `-Runs`      | No       | `5`          | Number of repetitions            |
+| `-Cooldown`  | No       | `60`         | Seconds between runs             |
+| `-Interval`  | No       | `100`        | EnergiBridge interval argument   |
+| `-PythonBin` | No       | `python3.14` | Python interpreter inside WSL    |
 
 ---
 
@@ -260,8 +272,8 @@ Each run produces three files in `results/`:
 
    | Column                     | Description                                |
    | -------------------------- | ------------------------------------------ |
-   | `Delta`                    | Elapsed microseconds since previous sample |
-   | `Time`                     | Unix timestamp (nanoseconds)               |
+   | `Delta`                    | Elapsed time since previous sample (milliseconds in this dataset) |
+   | `Time`                     | Unix timestamp (milliseconds in this dataset) |
    | `CPU_FREQUENCY_0..N`       | Per-core CPU frequency (MHz)               |
    | `CPU_TEMP_0..N`            | Per-core CPU temperature (°C)              |
    | `CPU_USAGE_0..N`           | Per-core CPU usage (%)                     |
@@ -303,3 +315,4 @@ The scripts auto-detect your OS and architecture and select the correct binary.
 | WSL script fails on Windows                                  | Ensure WSL is installed (`wsl --install`) and a Linux distro is set up                   |
 | `execvpe(/bin/bash) failed` in Windows runs                  | Run from Git Bash (or PowerShell launching Git Bash); the scripts now force Git Bash for EnergiBridge subcommands. |
 | Results look wrong or empty                                  | Check the `.cmd.log` file for errors from the package manager itself                     |
+
