@@ -51,6 +51,7 @@ The goal is to provide reproducible, quantitative data on how much energy each t
 │   ├── run_once_wsl.ps1          # Single run via WSL (Windows PowerShell)
 │   └── run_multiple_wsl.ps1      # Repeated runs via WSL (Windows PowerShell)
 ├── workload/
+│   ├── pyproject.toml             # Project metadata + Poetry config
 │   ├── requirements.in           # Top-level dependency (Apache Airflow)
 │   └── requirements.txt          # Fully pinned lock file (pip-compile output)
 └── README.md
@@ -69,15 +70,15 @@ The goal is to provide reproducible, quantitative data on how much energy each t
 
 ## Prerequisites
 
-| Requirement    | Notes                                                                                   |
-| -------------- | --------------------------------------------------------------------------------------- |
-| **Python 3.14.x** | With `venv` module support                                                           |
-| **pip**        | Comes with Python; needed for `--tool pip`                                              |
-| **uv**         | Install via `curl -LsSf https://astral.sh/uv/install.sh \| sh` — needed for `--tool uv` |
-| **poetry**     | Install via `pipx install poetry` — needed for `--tool poetry`                          |
-| **pip-tools**  | Install via `pip install pip-tools` — needed for `--tool pip --mode lock`               |
-| **bash**       | Available by default on macOS and Linux                                                 |
-| **WSL**        | Required on Windows (the PowerShell scripts delegate to WSL)                            |
+| Requirement       | Notes                                                                                   |
+| ----------------- | --------------------------------------------------------------------------------------- |
+| **Python 3.14.x** | With `venv` module support                                                              |
+| **pip**           | Comes with Python; needed for `--tool pip`                                              |
+| **uv**            | Install via `curl -LsSf https://astral.sh/uv/install.sh \| sh` — needed for `--tool uv` |
+| **poetry**        | Install via `pipx install poetry` — needed for `--tool poetry`                          |
+| **pip-tools**     | Install via `pip install pip-tools` — needed for `--tool pip --mode lock`               |
+| **bash**          | Available by default on macOS and Linux                                                 |
+| **WSL**           | Required on Windows (the PowerShell scripts delegate to WSL)                            |
 
 > **macOS note**: EnergiBridge may require elevated permissions to read power counters. If you get permission errors, run with `sudo`.
 
@@ -115,15 +116,15 @@ Executes a **single** benchmark run.
 Usage: ./scripts/run_once.sh --tool <tool> --mode <mode> [options]
 ```
 
-| Flag            | Required | Default    | Description                                                          |
-| --------------- | -------- | ---------- | -------------------------------------------------------------------- |
-| `--tool`        | Yes      | —          | Package manager to benchmark: `pip`, `uv`, or `poetry`               |
-| `--mode`        | Yes      | —          | Benchmark mode: `cold`, `warm`, or `lock`                            |
-| `--python`      | No       | `python3.14`   | Python binary to use (e.g. `python3.14`)                         |
-| `--workdir`     | No       | `workload` | Directory containing `requirements.txt` / `requirements.in`          |
-| `--results`     | No       | `results`  | Directory for output CSVs                                            |
-| `--interval`    | No       | `100`      | EnergiBridge `-i` interval argument (recommended starting point: `100` milliseconds) |
-| `--cooldown`    | No       | `0`        | Optional seconds to wait after the run completes                      |
+| Flag         | Required | Default      | Description                                                                          |
+| ------------ | -------- | ------------ | ------------------------------------------------------------------------------------ |
+| `--tool`     | Yes      | —            | Package manager to benchmark: `pip`, `uv`, or `poetry`                               |
+| `--mode`     | Yes      | —            | Benchmark mode: `cold`, `warm`, or `lock`                                            |
+| `--python`   | No       | `python3.14` | Python binary to use (e.g. `python3.14`)                                             |
+| `--workdir`  | No       | `workload`   | Directory containing `requirements.txt` / `requirements.in`                          |
+| `--results`  | No       | `results`    | Directory for output CSVs                                                            |
+| `--interval` | No       | `100`        | EnergiBridge `-i` interval argument (recommended starting point: `100` milliseconds) |
+| `--cooldown` | No       | `0`          | Optional seconds to wait after the run completes                                     |
 
 **Examples:**
 
@@ -154,14 +155,14 @@ Runs `run_once.sh` **multiple times** in sequence with a cooldown between each r
 Usage: ./scripts/run_multiple.sh --tool <tool> --mode <mode> [options]
 ```
 
-| Flag         | Required | Default | Description                               |
-| ------------ | -------- | ------- | ----------------------------------------- |
-| `--tool`     | Yes      | —       | Package manager: `pip`, `uv`, or `poetry` |
-| `--mode`     | Yes      | —       | Benchmark mode: `cold`, `warm`, or `lock` |
-| `--runs`     | No       | `5`     | Number of repetitions                     |
-| `--cooldown` | No       | `60`    | Seconds between runs                      |
-| `--interval` | No       | unset   | Passed through to `run_once.sh --interval` |
-| `--python`   | No       | `python3.14` | Passed through to `run_once.sh --python` |
+| Flag         | Required | Default      | Description                                |
+| ------------ | -------- | ------------ | ------------------------------------------ |
+| `--tool`     | Yes      | —            | Package manager: `pip`, `uv`, or `poetry`  |
+| `--mode`     | Yes      | —            | Benchmark mode: `cold`, `warm`, or `lock`  |
+| `--runs`     | No       | `5`          | Number of repetitions                      |
+| `--cooldown` | No       | `60`         | Seconds between runs                       |
+| `--interval` | No       | unset        | Passed through to `run_once.sh --interval` |
+| `--python`   | No       | `python3.14` | Passed through to `run_once.sh --python`   |
 
 **Examples:**
 
@@ -225,30 +226,38 @@ For Windows users, PowerShell wrapper scripts delegate execution to WSL.
 .\scripts\run_once_wsl.ps1 -Tool pip -Mode warm -PythonBin python3.14
 ```
 
+| Parameter    | Required | Default      | Description                    |
+| ------------ | -------- | ------------ | ------------------------------ |
+| `-Tool`      | Yes      | —            | `pip`, `uv`, or `poetry`       |
+| `-Mode`      | Yes      | —            | `cold`, `warm`, or `lock`      |
+| `-Cooldown`  | No       | `0`          | Seconds to wait after the run  |
+| `-Interval`  | No       | `100`        | EnergiBridge interval argument |
+| `-PythonBin` | No       | `python3.14` | Python interpreter inside WSL  |
+
 **`run_multiple_wsl.ps1`**
 
 ```powershell
 .\scripts\run_multiple_wsl.ps1 -Tool uv -Mode cold -Runs 10 -Cooldown 10 -PythonBin python3.14
 ```
 
-| Parameter   | Required | Default | Description               |
-| ----------- | -------- | ------- | ------------------------- |
-| `-Tool`     | Yes      | —       | `pip`, `uv`, or `poetry`  |
-| `-Mode`     | Yes      | —       | `cold`, `warm`, or `lock` |
-| `-Runs`     | No       | `5`     | Number of repetitions     |
-| `-Cooldown` | No       | `60`    | Seconds between runs      |
-| `-Interval` | No       | `100`   | EnergiBridge interval argument |
-| `-PythonBin`| No       | `python3.14` | Python interpreter inside WSL |
+| Parameter    | Required | Default      | Description                    |
+| ------------ | -------- | ------------ | ------------------------------ |
+| `-Tool`      | Yes      | —            | `pip`, `uv`, or `poetry`       |
+| `-Mode`      | Yes      | —            | `cold`, `warm`, or `lock`      |
+| `-Runs`      | No       | `5`          | Number of repetitions          |
+| `-Cooldown`  | No       | `60`         | Seconds between runs           |
+| `-Interval`  | No       | `100`        | EnergiBridge interval argument |
+| `-PythonBin` | No       | `python3.14` | Python interpreter inside WSL  |
 
 ---
 
 ## Benchmark Modes
 
-| Mode       | What happens                                                                                | Measures                                               |
-| ---------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| **`cold`** | Purges package cache + deletes `.venv` → full download and install from scratch             | Worst-case energy: network + resolve + build + install |
+| Mode       | What happens                                                                                                                      | Measures                                                |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| **`cold`** | Purges package cache + deletes `.venv` → full download and install from scratch                                                   | Worst-case energy: network + resolve + build + install  |
 | **`warm`** | Deletes `.venv`, runs one **unmeasured** install to pre-fill cache, deletes `.venv` again, then measures install from local cache | Install-only energy with stable warm-cache precondition |
-| **`lock`** | Generates/resolves a lock file without installing (`pip-compile`, `uv lock`, `poetry lock`) | Dependency resolution energy                           |
+| **`lock`** | Generates/resolves a lock file without installing (`pip-compile`, `uv lock`, `poetry lock`)                                       | Dependency resolution energy                            |
 
 ---
 
@@ -295,11 +304,11 @@ The scripts auto-detect your OS and architecture and select the correct binary.
 
 ## Troubleshooting
 
-| Problem                                                      | Solution                                                                                 |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| `ERROR: pip not found` / `uv not found` / `poetry not found` | Install the tool first and make sure it's on your `PATH`                                 |
-| `ERROR: pip-compile not found`                               | Install pip-tools: `pip install pip-tools` (needed for `--tool pip --mode lock`)         |
-| `ERROR: No energibridge binary found`                        | Your platform may not have a pre-built binary in `bin/`. Build EnergiBridge from source. |
-| WSL script fails on Windows                                  | Ensure WSL is installed (`wsl --install`) and a Linux distro is set up                   |
+| Problem                                                      | Solution                                                                                                           |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `ERROR: pip not found` / `uv not found` / `poetry not found` | Install the tool first and make sure it's on your `PATH`                                                           |
+| `ERROR: pip-compile not found`                               | Install pip-tools: `pip install pip-tools` (needed for `--tool pip --mode lock`)                                   |
+| `ERROR: No energibridge binary found`                        | Your platform may not have a pre-built binary in `bin/`. Build EnergiBridge from source.                           |
+| WSL script fails on Windows                                  | Ensure WSL is installed (`wsl --install`) and a Linux distro is set up                                             |
 | `execvpe(/bin/bash) failed` in Windows runs                  | Run from Git Bash (or PowerShell launching Git Bash); the scripts now force Git Bash for EnergiBridge subcommands. |
-| Results look wrong or empty                                  | Check the `.cmd.log` file for errors from the package manager itself                     |
+| Results look wrong or empty                                  | Check the `.cmd.log` file for errors from the package manager itself                                               |
