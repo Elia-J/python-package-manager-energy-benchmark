@@ -5,7 +5,7 @@ set -euo pipefail
 WORKDIR="workload"
 RESULTS_DIR="results"
 PYTHON_BIN="${PYTHON_BIN:-python3.14}"
-INTERVAL=100
+INTERVAL=200
 COOLDOWN=0
 
 TOOL=""

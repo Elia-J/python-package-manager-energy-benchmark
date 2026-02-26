@@ -61,7 +61,7 @@ The goal is to provide reproducible, quantitative data on how much energy each t
 ## How It Works
 
 1. **Prepare the environment** — depending on the mode, the script creates a fresh virtual environment and/or purges caches. For `warm`, it performs one unmeasured install first to pre-fill cache, then recreates `.venv` before the measured run.
-2. **Wrap with EnergiBridge** — the package-manager command runs inside EnergiBridge, which samples hardware sensors at a configurable interval (default: 100 ms).
+2. **Wrap with EnergiBridge** — the package-manager command runs inside EnergiBridge, which samples hardware sensors at a configurable interval (default: 200 ms).
 3. **Collect results** — a timestamped CSV is written to `results/` with columns for power, CPU metrics, memory, etc. A companion `.cmd.log` captures the command's stdout/stderr.
 4. **Cool down** — the script waits (default: 60 s between repeated runs) to let the system return to baseline before the next run.
 
@@ -122,7 +122,7 @@ Usage: ./scripts/run_once.sh --tool <tool> --mode <mode> [options]
 | `--python`      | No       | `python3.14`   | Python binary to use (e.g. `python3.14`)                         |
 | `--workdir`     | No       | `workload` | Directory containing `requirements.txt` / `requirements.in`          |
 | `--results`     | No       | `results`  | Directory for output CSVs                                            |
-| `--interval`    | No       | `100`      | EnergiBridge `-i` interval argument (recommended starting point: `100` milliseconds) |
+| `--interval`    | No       | `200`      | EnergiBridge `-i` interval argument (recommended starting point: `200` milliseconds) |
 | `--cooldown`    | No       | `0`        | Optional seconds to wait after the run completes                      |
 
 **Examples:**
@@ -132,7 +132,7 @@ Usage: ./scripts/run_once.sh --tool <tool> --mode <mode> [options]
 ./scripts/run_once.sh --tool pip --mode warm
 
 # Cold uv install with Python 3.14 and explicit interval
-./scripts/run_once.sh --tool uv --mode cold --python python3.14 --interval 100
+./scripts/run_once.sh --tool uv --mode cold --python python3.14 --interval 200
 
 # Poetry lock resolution
 ./scripts/run_once.sh --tool poetry --mode lock
@@ -170,7 +170,7 @@ Usage: ./scripts/run_multiple.sh --tool <tool> --mode <mode> [options]
 ./scripts/run_multiple.sh --tool pip --mode warm --runs 10 --cooldown 15
 
 # 10 warm pip runs with explicit interval
-./scripts/run_multiple.sh --tool pip --mode warm --runs 10 --interval 100 --python python3.14
+./scripts/run_multiple.sh --tool pip --mode warm --runs 10 --interval 200 --python python3.14
 
 # 5 cold poetry installs (defaults)
 ./scripts/run_multiple.sh --tool poetry --mode cold
@@ -222,7 +222,7 @@ For Windows users, PowerShell wrapper scripts delegate execution to WSL.
 **`run_once_wsl.ps1`**
 
 ```powershell
-.\scripts\run_once_wsl.ps1 -Tool pip -Mode warm -Interval 100 -Cooldown 0 -PythonBin python3.14
+.\scripts\run_once_wsl.ps1 -Tool pip -Mode warm -Interval 200 -Cooldown 0 -PythonBin python3.14
 ```
 
 **`run_multiple_wsl.ps1`**
@@ -237,7 +237,7 @@ For Windows users, PowerShell wrapper scripts delegate execution to WSL.
 | ------------ | -------- | ------------ | ----------------------------------- |
 | `-Tool`      | Yes      | -            | `pip`, `uv`, or `poetry`            |
 | `-Mode`      | Yes      | -            | `cold`, `warm`, or `lock`           |
-| `-Interval`  | No       | `100`        | EnergiBridge interval argument      |
+| `-Interval`  | No       | `200`        | EnergiBridge interval argument      |
 | `-Cooldown`  | No       | `0`          | Optional post-run wait (seconds)    |
 | `-PythonBin` | No       | `python3.14` | Python interpreter inside WSL       |
 
@@ -249,7 +249,7 @@ For Windows users, PowerShell wrapper scripts delegate execution to WSL.
 | `-Mode`      | Yes      | -            | `cold`, `warm`, or `lock`        |
 | `-Runs`      | No       | `5`          | Number of repetitions            |
 | `-Cooldown`  | No       | `60`         | Seconds between runs             |
-| `-Interval`  | No       | `100`        | EnergiBridge interval argument   |
+| `-Interval`  | No       | `200`        | EnergiBridge interval argument   |
 | `-PythonBin` | No       | `python3.14` | Python interpreter inside WSL    |
 
 ---
@@ -315,4 +315,3 @@ The scripts auto-detect your OS and architecture and select the correct binary.
 | WSL script fails on Windows                                  | Ensure WSL is installed (`wsl --install`) and a Linux distro is set up                   |
 | `execvpe(/bin/bash) failed` in Windows runs                  | Run from Git Bash (or PowerShell launching Git Bash); the scripts now force Git Bash for EnergiBridge subcommands. |
 | Results look wrong or empty                                  | Check the `.cmd.log` file for errors from the package manager itself                     |
-

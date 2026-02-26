@@ -11,7 +11,7 @@ param (
 
     [int]$Cooldown = 60,
 
-    [int]$Interval = 100,
+    [int]$Interval = 200,
 
     [string]$PythonBin = "python3.14"
 )

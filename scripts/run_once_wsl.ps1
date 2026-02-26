@@ -7,7 +7,7 @@ param (
     [ValidateSet("cold","warm","lock")]
     [string]$Mode,
 
-    [int]$Interval = 100,
+    [int]$Interval = 200,
 
     [int]$Cooldown = 0,
 
