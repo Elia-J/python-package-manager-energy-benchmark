@@ -8,6 +8,7 @@ PYTHON_BIN="${PYTHON_BIN:-python3.14}"
 INTERVAL=200
 COOLDOWN=0
 LOCK_WORKDIR=""
+LOCK_PRIME_WORKDIR=""
 
 TOOL=""
 MODE=""
@@ -53,6 +54,9 @@ BIN_DIR="$ROOT_DIR/bin"
 cleanup() {
   if [[ -n "$LOCK_WORKDIR" && -d "$LOCK_WORKDIR" ]]; then
     rm -rf "$LOCK_WORKDIR"
+  fi
+  if [[ -n "$LOCK_PRIME_WORKDIR" && -d "$LOCK_PRIME_WORKDIR" ]]; then
+    rm -rf "$LOCK_PRIME_WORKDIR"
   fi
 }
 trap cleanup EXIT
@@ -175,21 +179,29 @@ fi
 
 # -------- Select command --------
 CMD=""
+PRIME_CMD=""
 
 if [[ "$MODE" == "lock" ]]; then
+  LOCK_PRIME_WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/pm-lock-prime-XXXXXX")"
   LOCK_WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/pm-lock-XXXXXX")"
 
   if [[ "$TOOL" == "pip" ]]; then
     [[ -f "requirements.in" ]] || { echo "ERROR: workload/requirements.in missing"; exit 1; }
+    cp requirements.in "$LOCK_PRIME_WORKDIR/"
     cp requirements.in "$LOCK_WORKDIR/"
+    PRIME_CMD="cd \"$LOCK_PRIME_WORKDIR\" && pip-compile requirements.in --strip-extras --output-file requirements.lock"
     CMD="cd \"$LOCK_WORKDIR\" && pip-compile requirements.in --strip-extras --output-file requirements.lock"
   elif [[ "$TOOL" == "uv" ]]; then
     [[ -f "pyproject.toml" ]] || { echo "ERROR: workload/pyproject.toml missing"; exit 1; }
+    cp pyproject.toml "$LOCK_PRIME_WORKDIR/"
     cp pyproject.toml "$LOCK_WORKDIR/"
+    PRIME_CMD="cd \"$LOCK_PRIME_WORKDIR\" && uv lock"
     CMD="cd \"$LOCK_WORKDIR\" && uv lock"
   elif [[ "$TOOL" == "poetry" ]]; then
     [[ -f "pyproject.toml" ]] || { echo "ERROR: workload/pyproject.toml missing"; exit 1; }
+    cp pyproject.toml "$LOCK_PRIME_WORKDIR/"
     cp pyproject.toml "$LOCK_WORKDIR/"
+    PRIME_CMD="cd \"$LOCK_PRIME_WORKDIR\" && poetry lock"
     CMD="cd \"$LOCK_WORKDIR\" && poetry lock"
   fi
 else
@@ -205,6 +217,19 @@ else
     poetry config virtualenvs.in-project true >/dev/null 2>&1 || true
     poetry env use "$PYTHON_BIN"
     CMD="poetry install --no-root"
+  fi
+fi
+
+# -------- Warm metadata-cache priming for lock mode (unmeasured) --------
+if [[ "$MODE" == "lock" ]]; then
+  echo "Priming metadata cache for lock run (unmeasured)..."
+  set +e
+  eval "$PRIME_CMD"
+  prime_exit=$?
+  set -e
+  if [[ "$prime_exit" -ne 0 ]]; then
+    echo "ERROR: lock-mode priming failed with exit code $prime_exit"
+    exit "$prime_exit"
   fi
 fi
 

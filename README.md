@@ -61,7 +61,7 @@ The goal is to provide reproducible, quantitative data on how much energy each t
 
 ## How It Works
 
-1. **Prepare the environment** — depending on the mode, the script creates a fresh virtual environment and/or purges caches. For `warm`, it performs one unmeasured install first to pre-fill cache, then recreates `.venv` before the measured run.
+1. **Prepare the environment** — depending on the mode, the script creates a fresh virtual environment and/or purges caches. For `warm`, it performs one unmeasured install first to pre-fill cache, then recreates `.venv` before the measured run. For `lock`, it performs one unmeasured lock run in a temporary workspace to warm metadata caches, then measures lock in a fresh temporary workspace.
 2. **Wrap with EnergiBridge** — the package-manager command runs inside EnergiBridge, which samples hardware sensors at a configurable interval (default: 200 ms).
 3. **Collect results** — a timestamped CSV is written to `results/` with columns for power, CPU metrics, memory, etc. A companion `.cmd.log` captures the command's stdout/stderr.
 4. **Cool down** — the script waits (default: 60 s between repeated runs) to let the system return to baseline before the next run.
@@ -261,7 +261,7 @@ For Windows users, PowerShell wrapper scripts delegate execution to WSL.
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | **`cold`** | Purges package cache + deletes `.venv` → full download and install from scratch                                                   | Worst-case energy: network + resolve + build + install  |
 | **`warm`** | Deletes `.venv`, runs one **unmeasured** install to pre-fill cache, deletes `.venv` again, then measures install from local cache | Install-only energy with stable warm-cache precondition |
-| **`lock`** | Generates/resolves a lock file without installing (`pip-compile`, `uv lock`, `poetry lock`)                                       | Dependency resolution energy                            |
+| **`lock`** | Performs one **unmeasured** lock to warm resolver metadata caches, then measures lock-file generation in a fresh temporary workspace (`pip-compile`, `uv lock`, `poetry lock`) | Warm-cache dependency resolution energy                 |
 
 ---
 
@@ -316,4 +316,3 @@ The scripts auto-detect your OS and architecture and select the correct binary. 
 | WSL script fails on Windows                                  | Ensure WSL is installed (`wsl --install`) and a Linux distro is set up                                             |
 | `execvpe(/bin/bash) failed` in Windows runs                  | Run from Git Bash (or PowerShell launching Git Bash); the scripts now force Git Bash for EnergiBridge subcommands. |
 | Results look wrong or empty                                  | Check the `.cmd.log` file for errors from the package manager itself                                               |
-
