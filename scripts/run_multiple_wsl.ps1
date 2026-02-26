@@ -9,7 +9,9 @@ param (
 
     [int]$Runs = 5,
 
-    [int]$Cooldown = 5
+    [int]$Cooldown = 60,
+
+    [int]$Interval = 100
 )
 
 # --------------------------------------------------
@@ -26,6 +28,7 @@ Write-Host "Tool:      $Tool"
 Write-Host "Mode:      $Mode"
 Write-Host "Runs:      $Runs"
 Write-Host "Cooldown:  $Cooldown"
+Write-Host "Interval:  $Interval"
 Write-Host "========================================"
 
 # --------------------------------------------------
@@ -50,7 +53,8 @@ wsl bash -c "
         --tool $Tool \
         --mode $Mode \
         --runs $Runs \
-        --cooldown $Cooldown
+        --cooldown $Cooldown \
+        --interval $Interval
 "
 
 if ($LASTEXITCODE -ne 0) {

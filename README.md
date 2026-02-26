@@ -122,8 +122,8 @@ Usage: ./scripts/run_once.sh --tool <tool> --mode <mode> [options]
 | `--python`      | No       | `python`   | Python binary to use (e.g. `python3.11`)                             |
 | `--workdir`     | No       | `workload` | Directory containing `requirements.txt` / `requirements.in`          |
 | `--results`     | No       | `results`  | Directory for output CSVs                                            |
-| `--interval-us` | No       | `100000`   | EnergiBridge sampling interval in microseconds (100 000 µs = 100 ms) |
-| `--cooldown`    | No       | `10`       | Seconds to wait after the run completes                              |
+| `--interval`    | No       | `100`      | EnergiBridge `-i` interval argument (recommended starting point: `100` milliseconds) |
+| `--cooldown`    | No       | `0`        | Optional seconds to wait after the run completes                      |
 
 **Examples:**
 
@@ -131,8 +131,8 @@ Usage: ./scripts/run_once.sh --tool <tool> --mode <mode> [options]
 # Warm pip install
 ./scripts/run_once.sh --tool pip --mode warm
 
-# Cold uv install with Python 3.11 and 50ms sampling
-./scripts/run_once.sh --tool uv --mode cold --python python3.11 --interval-us 50000
+# Cold uv install with Python 3.11 and explicit interval
+./scripts/run_once.sh --tool uv --mode cold --python python3.11 --interval 100
 
 # Poetry lock resolution
 ./scripts/run_once.sh --tool poetry --mode lock
@@ -159,13 +159,17 @@ Usage: ./scripts/run_multiple.sh --tool <tool> --mode <mode> [options]
 | `--tool`     | Yes      | —       | Package manager: `pip`, `uv`, or `poetry` |
 | `--mode`     | Yes      | —       | Benchmark mode: `cold`, `warm`, or `lock` |
 | `--runs`     | No       | `5`     | Number of repetitions                     |
-| `--cooldown` | No       | `5`     | Seconds between runs                      |
+| `--cooldown` | No       | `60`    | Seconds between runs                      |
+| `--interval` | No       | unset   | Passed through to `run_once.sh --interval` |
 
 **Examples:**
 
 ```bash
 # 10 warm pip runs with 15s cooldown
 ./scripts/run_multiple.sh --tool pip --mode warm --runs 10 --cooldown 15
+
+# 10 warm pip runs with explicit interval
+./scripts/run_multiple.sh --tool pip --mode warm --runs 10 --interval 100
 
 # 5 cold poetry installs (defaults)
 ./scripts/run_multiple.sh --tool poetry --mode cold
@@ -186,8 +190,9 @@ Usage: ./scripts/run_all.sh [options]
 | `--tools`    | No       | `pip,uv,poetry`  | Comma-separated list of tools to benchmark |
 | `--modes`    | No       | `cold,warm,lock` | Comma-separated list of modes to benchmark |
 | `--runs`     | No       | `5`              | Number of repetitions per combination      |
-| `--cooldown` | No       | `5`              | Seconds between runs within a combination  |
-| `--pause`    | No       | `10`             | Seconds between tool x mode combinations   |
+| `--cooldown` | No       | `60`             | Seconds between runs within a combination  |
+| `--pause`    | No       | `60`             | Seconds between tool x mode combinations   |
+| `--interval` | No       | unset            | Passed through to `run_multiple.sh --interval` |
 
 **Examples:**
 
@@ -228,7 +233,8 @@ For Windows users, PowerShell wrapper scripts delegate execution to WSL.
 | `-Tool`     | Yes      | —       | `pip`, `uv`, or `poetry`  |
 | `-Mode`     | Yes      | —       | `cold`, `warm`, or `lock` |
 | `-Runs`     | No       | `5`     | Number of repetitions     |
-| `-Cooldown` | No       | `5`     | Seconds between runs      |
+| `-Cooldown` | No       | `60`    | Seconds between runs      |
+| `-Interval` | No       | `100`   | EnergiBridge interval argument |
 
 ---
 
@@ -244,7 +250,7 @@ For Windows users, PowerShell wrapper scripts delegate execution to WSL.
 
 ## Output Format
 
-Each run produces two files in `results/`:
+Each run produces three files in `results/`:
 
 1. **`<tool>_<mode>_<os>_<arch>_<timestamp>.csv`** — EnergiBridge telemetry samples with columns:
 
@@ -261,6 +267,8 @@ Each run produces two files in `results/`:
    | `TOTAL_SWAP` / `USED_SWAP` | Swap usage (bytes)                         |
 
 2. **`<tool>_<mode>_<os>_<arch>_<timestamp>.cmd.log`** — stdout/stderr of the package-manager command.
+
+3. **`<tool>_<mode>_<os>_<arch>_<timestamp>.meta.csv`** — per-run metadata (`wall_clock_s`, `exit_code`, and filenames) for analysis and validation.
 
 ---
 

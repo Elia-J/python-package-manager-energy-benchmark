@@ -5,14 +5,14 @@ set -euo pipefail
 WORKDIR="workload"
 RESULTS_DIR="results"
 PYTHON_BIN="${PYTHON_BIN:-python}"
-INTERVAL_US=100000   # energibridge -i is microseconds; 100000us = 100ms
-COOLDOWN=10
+INTERVAL=100
+COOLDOWN=0
 
 TOOL=""
 MODE=""
 
 usage() {
-  echo "Usage: ./scripts/run_once.sh --tool [pip|uv|poetry] --mode [cold|warm|lock]"
+  echo "Usage: ./scripts/run_once.sh --tool [pip|uv|poetry] --mode [cold|warm|lock] [--interval N]"
   echo "Env vars:"
   echo "  PYTHON_BIN=python3.11   (optional)"
   exit 1
@@ -26,13 +26,23 @@ while [[ $# -gt 0 ]]; do
     --python) PYTHON_BIN="$2"; shift 2 ;;
     --workdir) WORKDIR="$2"; shift 2 ;;
     --results) RESULTS_DIR="$2"; shift 2 ;;
-    --interval-us) INTERVAL_US="$2"; shift 2 ;;
+    --interval) INTERVAL="$2"; shift 2 ;;
     --cooldown) COOLDOWN="$2"; shift 2 ;;
     *) usage ;;
   esac
 done
 
 [[ -z "$TOOL" || -z "$MODE" ]] && usage
+
+if ! [[ "$INTERVAL" =~ ^[0-9]+$ ]] || [[ "$INTERVAL" -le 0 ]]; then
+  echo "ERROR: --interval must be a positive integer"
+  exit 1
+fi
+
+if ! [[ "$COOLDOWN" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: --cooldown must be a non-negative integer"
+  exit 1
+fi
 
 # -------- Paths --------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -127,11 +137,15 @@ venv_pip() {
 mkdir -p "$ROOT_DIR/$RESULTS_DIR"
 
 timestamp="$(date +"%Y%m%d_%H%M%S")"
-outfile="$ROOT_DIR/$RESULTS_DIR/${TOOL}_${MODE}_${OS}_${ARCH}_${timestamp}.csv"
+run_id="${TOOL}_${MODE}_${OS}_${ARCH}_${timestamp}"
+outfile="$ROOT_DIR/$RESULTS_DIR/${run_id}.csv"
+cmdlog="$ROOT_DIR/$RESULTS_DIR/${run_id}.cmd.log"
+metafile="$ROOT_DIR/$RESULTS_DIR/${run_id}.meta.csv"
 
 echo "Platform:     $OS/$ARCH"
 echo "Energibridge: $ENERGIBRIDGE_BIN"
 echo "Output:       $outfile"
+echo "Interval:     $INTERVAL"
 
 # -------- Workdir --------
 cd "$ROOT_DIR/$WORKDIR"
@@ -185,13 +199,41 @@ fi
 
 echo "Running: $CMD"
 
-cmdlog="$ROOT_DIR/$RESULTS_DIR/${TOOL}_${MODE}_${OS}_${ARCH}_${timestamp}.cmd.log"
+run_start_s="$(date +%s)"
 
+set +e
 "$ENERGIBRIDGE_BIN" \
-  -i "$INTERVAL_US" \
+  -i "$INTERVAL" \
   -c "$cmdlog" \
   -- bash -c "$CMD" \
   > "$outfile"
+command_exit=$?
+set -e
 
-echo "Run complete. Cooling down ${COOLDOWN}s..."
-sleep "$COOLDOWN"
+run_end_s="$(date +%s)"
+wall_clock_s=$((run_end_s - run_start_s))
+
+printf "tool,mode,os,arch,timestamp,interval_arg,wall_clock_s,exit_code,csv_file,cmdlog_file\n" > "$metafile"
+printf "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n" \
+  "$TOOL" \
+  "$MODE" \
+  "$OS" \
+  "$ARCH" \
+  "$timestamp" \
+  "$INTERVAL" \
+  "$wall_clock_s" \
+  "$command_exit" \
+  "$(basename "$outfile")" \
+  "$(basename "$cmdlog")" >> "$metafile"
+
+if [[ "$command_exit" -ne 0 ]]; then
+  echo "ERROR: benchmark command failed with exit code $command_exit"
+  exit "$command_exit"
+fi
+
+if [[ "$COOLDOWN" -gt 0 ]]; then
+  echo "Run complete. Cooling down ${COOLDOWN}s..."
+  sleep "$COOLDOWN"
+else
+  echo "Run complete."
+fi

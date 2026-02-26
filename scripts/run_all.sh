@@ -8,8 +8,9 @@ set -euo pipefail
 TOOLS="pip uv poetry"
 MODES="cold warm lock"
 RUNS=5
-COOLDOWN=5
-PAUSE=10     # seconds between tool×mode combos
+COOLDOWN=60
+PAUSE=60     # seconds between tool×mode combos
+INTERVAL=""
 
 usage() {
   cat <<EOF
@@ -19,8 +20,9 @@ Options:
   --tools    <t1,t2,...>   Comma-separated tools to benchmark (default: pip,uv,poetry)
   --modes    <m1,m2,...>   Comma-separated modes to benchmark (default: cold,warm,lock)
   --runs     <N>           Number of repetitions per combination (default: 5)
-  --cooldown <S>           Seconds between runs within a combination (default: 5)
-  --pause    <S>           Seconds between tool x mode combinations (default: 10)
+  --cooldown <S>           Seconds between runs within a combination (default: 60)
+  --pause    <S>           Seconds between tool x mode combinations (default: 60)
+  --interval <N>           EnergiBridge interval argument passed to run_once.sh
   --help                   Show this help message
 
 Examples:
@@ -40,6 +42,7 @@ while [[ $# -gt 0 ]]; do
     --runs)     RUNS="$2";        shift 2 ;;
     --cooldown) COOLDOWN="$2";    shift 2 ;;
     --pause)    PAUSE="$2";       shift 2 ;;
+    --interval) INTERVAL="$2";    shift 2 ;;
     --help)     usage ;;
     *)          echo "Unknown option: $1"; usage ;;
   esac
@@ -70,6 +73,9 @@ printf -- "- Modes:        %s\n" "$MODES"
 printf -- "- Runs/combo:   %s\n" "$RUNS"
 printf -- "- Cooldown:     %ss\n" "$COOLDOWN"
 printf -- "- Pause:        %ss\n" "$PAUSE"
+if [[ -n "$INTERVAL" ]]; then
+  printf -- "- Interval arg: %s\n" "$INTERVAL"
+fi
 printf -- "- Total combos: %s\n" "$total"
 printf -- "- Total runs:   %s\n" "$((total * RUNS))"
 echo "========================================"
@@ -87,7 +93,11 @@ for ((idx=0; idx<total; idx++)); do
   echo "========================================"
   echo ""
 
-  "$RUN_MULTIPLE" --tool "$tool" --mode "$mode" --runs "$RUNS" --cooldown "$COOLDOWN"
+  run_multiple_cmd=("$RUN_MULTIPLE" --tool "$tool" --mode "$mode" --runs "$RUNS" --cooldown "$COOLDOWN")
+  if [[ -n "$INTERVAL" ]]; then
+    run_multiple_cmd+=(--interval "$INTERVAL")
+  fi
+  "${run_multiple_cmd[@]}"
 
   if [[ "$num" -lt "$total" ]]; then
     echo ""
