@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ────────────────────────────────────────────────────────────
-# Run benchmarks for every tool × mode combination
-# ────────────────────────────────────────────────────────────
+# Run benchmarks for every tool x mode combination with run-level shuffling.
 
 TOOLS="pip uv poetry"
 MODES="cold warm lock"
 RUNS=5
 COOLDOWN=60
-PAUSE=60     # seconds between tool×mode combos
+PAUSE=0      # extra seconds when switching tool/mode combos
 INTERVAL=""
+SEED=""
 
 usage() {
   cat <<EOF
@@ -20,15 +19,16 @@ Options:
   --tools    <t1,t2,...>   Comma-separated tools to benchmark (default: pip,uv,poetry)
   --modes    <m1,m2,...>   Comma-separated modes to benchmark (default: cold,warm,lock)
   --runs     <N>           Number of repetitions per combination (default: 5)
-  --cooldown <S>           Seconds between runs within a combination (default: 60)
-  --pause    <S>           Seconds between tool x mode combinations (default: 60)
+  --cooldown <S>           Seconds between runs (default: 60)
+  --pause    <S>           Extra seconds when switching tool/mode combos (default: 0)
   --interval <N>           EnergiBridge interval argument passed to run_once.sh
+  --seed     <N>           Optional RNG seed for reproducible shuffle order
   --help                   Show this help message
 
 Examples:
-  $0                                        # all 9 combos, 5 runs each
-  $0 --runs 30                              # all 9 combos, 30 runs each
-  $0 --tools pip,uv --modes cold,warm       # 4 combos only
+  $0                                        # all 9 combos, 5 runs each (shuffled)
+  $0 --runs 30 --seed 42                    # reproducible run order
+  $0 --tools pip,uv --modes cold,warm       # 4 combos only (shuffled)
   $0 --tools poetry --modes lock --runs 10  # poetry lock x 10
 EOF
   exit 0
@@ -43,20 +43,47 @@ while [[ $# -gt 0 ]]; do
     --cooldown) COOLDOWN="$2";    shift 2 ;;
     --pause)    PAUSE="$2";       shift 2 ;;
     --interval) INTERVAL="$2";    shift 2 ;;
+    --seed)     SEED="$2";        shift 2 ;;
     --help)     usage ;;
     *)          echo "Unknown option: $1"; usage ;;
   esac
 done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-RUN_MULTIPLE="$SCRIPT_DIR/run_multiple.sh"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+RUN_ONCE="$SCRIPT_DIR/run_once.sh"
+RESULTS_DIR="$ROOT_DIR/results"
 
-if [[ ! -x "$RUN_MULTIPLE" ]]; then
-  echo "ERROR: run_multiple.sh not found or not executable at $RUN_MULTIPLE"
+if [[ ! -x "$RUN_ONCE" ]]; then
+  echo "ERROR: run_once.sh not found or not executable at $RUN_ONCE"
   exit 1
 fi
 
-# ────── Build combo list ──────
+if ! [[ "$RUNS" =~ ^[0-9]+$ ]] || [[ "$RUNS" -le 0 ]]; then
+  echo "ERROR: --runs must be a positive integer"
+  exit 1
+fi
+
+if ! [[ "$COOLDOWN" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: --cooldown must be a non-negative integer"
+  exit 1
+fi
+
+if ! [[ "$PAUSE" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: --pause must be a non-negative integer"
+  exit 1
+fi
+
+if [[ -n "$INTERVAL" ]] && { ! [[ "$INTERVAL" =~ ^[0-9]+$ ]] || [[ "$INTERVAL" -le 0 ]]; }; then
+  echo "ERROR: --interval must be a positive integer"
+  exit 1
+fi
+
+if [[ -n "$SEED" ]] && ! [[ "$SEED" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: --seed must be a non-negative integer"
+  exit 1
+fi
+
 combos=()
 for tool in $TOOLS; do
   for mode in $MODES; do
@@ -64,45 +91,82 @@ for tool in $TOOLS; do
   done
 done
 
-total=${#combos[@]}
+total_combos=${#combos[@]}
+total_runs=$((total_combos * RUNS))
+
+# Build run-level schedule, then shuffle it.
+schedule=()
+for ((rep=1; rep<=RUNS; rep++)); do
+  for combo in "${combos[@]}"; do
+    schedule+=("$combo")
+  done
+done
+
+if [[ -n "$SEED" ]]; then
+  RANDOM="$SEED"
+fi
+
+for ((i=${#schedule[@]}-1; i>0; i--)); do
+  j=$((RANDOM % (i + 1)))
+  tmp="${schedule[$i]}"
+  schedule[$i]="${schedule[$j]}"
+  schedule[$j]="$tmp"
+done
+
+mkdir -p "$RESULTS_DIR"
+schedule_timestamp="$(date +"%Y%m%d_%H%M%S")"
+schedule_file="$RESULTS_DIR/schedule_${schedule_timestamp}.csv"
+printf "run_index,tool,mode\n" > "$schedule_file"
+for ((i=0; i<${#schedule[@]}; i++)); do
+  IFS=":" read -r tool mode <<< "${schedule[$i]}"
+  printf "%d,%s,%s\n" "$((i+1))" "$tool" "$mode" >> "$schedule_file"
+done
+
 echo ""
 echo "========================================"
-echo "FULL BENCHMARK SUITE:"
+echo "FULL BENCHMARK SUITE (SHUFFLED):"
 printf -- "- Tools:        %s\n" "$TOOLS"
 printf -- "- Modes:        %s\n" "$MODES"
 printf -- "- Runs/combo:   %s\n" "$RUNS"
 printf -- "- Cooldown:     %ss\n" "$COOLDOWN"
-printf -- "- Pause:        %ss\n" "$PAUSE"
+printf -- "- Extra pause:  %ss (on combo switch)\n" "$PAUSE"
 if [[ -n "$INTERVAL" ]]; then
   printf -- "- Interval arg: %s\n" "$INTERVAL"
 fi
-printf -- "- Total combos: %s\n" "$total"
-printf -- "- Total runs:   %s\n" "$((total * RUNS))"
+if [[ -n "$SEED" ]]; then
+  printf -- "- Shuffle seed: %s\n" "$SEED"
+fi
+printf -- "- Total combos: %s\n" "$total_combos"
+printf -- "- Total runs:   %s\n" "$total_runs"
+printf -- "- Schedule:     %s\n" "$schedule_file"
 echo "========================================"
 echo ""
 
 start_time=$SECONDS
 
-for ((idx=0; idx<total; idx++)); do
-  IFS=":" read -r tool mode <<< "${combos[$idx]}"
+for ((idx=0; idx<total_runs; idx++)); do
+  IFS=":" read -r tool mode <<< "${schedule[$idx]}"
   num=$((idx + 1))
 
   echo ""
-  echo "========================================"
-  echo "  [$num/$total]  $tool x $mode  ($RUNS runs)"
-  echo "========================================"
+  echo "[$num/$total_runs] $tool x $mode"
   echo ""
 
-  run_multiple_cmd=("$RUN_MULTIPLE" --tool "$tool" --mode "$mode" --runs "$RUNS" --cooldown "$COOLDOWN")
+  run_once_cmd=("$RUN_ONCE" --tool "$tool" --mode "$mode")
   if [[ -n "$INTERVAL" ]]; then
-    run_multiple_cmd+=(--interval "$INTERVAL")
+    run_once_cmd+=(--interval "$INTERVAL")
   fi
-  "${run_multiple_cmd[@]}"
+  "${run_once_cmd[@]}"
 
-  if [[ "$num" -lt "$total" ]]; then
+  if [[ "$num" -lt "$total_runs" ]]; then
+    next_combo="${schedule[$idx+1]}"
     echo ""
-    echo "Pausing ${PAUSE}s before next combination..."
-    sleep "$PAUSE"
+    echo "Cooling down ${COOLDOWN}s before next run..."
+    sleep "$COOLDOWN"
+    if [[ "$PAUSE" -gt 0 ]] && [[ "$next_combo" != "${schedule[$idx]}" ]]; then
+      echo "Applying extra combo-switch pause: ${PAUSE}s..."
+      sleep "$PAUSE"
+    fi
   fi
 done
 
@@ -112,5 +176,5 @@ seconds=$(( elapsed % 60 ))
 
 echo ""
 echo "========================================"
-echo "ALL BENCHMARKS COMPLETE"
+echo "ALL SHUFFLED BENCHMARKS COMPLETE"
 printf "Elapsed: %dm %ds%-29s\n" "$minutes" "$seconds" ""

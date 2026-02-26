@@ -179,7 +179,7 @@ Usage: ./scripts/run_multiple.sh --tool <tool> --mode <mode> [options]
 
 ### `run_all.sh`
 
-Runs `run_multiple.sh` for **every tool x mode combination** (9 combos by default: `pip`, `uv`, `poetry` x `cold`, `warm`, `lock`). This is the easiest way to execute the full benchmark suite in a single command.
+Runs `run_once.sh` for **every tool x mode combination** (9 combos by default: `pip`, `uv`, `poetry` x `cold`, `warm`, `lock`) with a **globally shuffled run order**. This avoids long contiguous blocks of the same tool/mode and improves experimental independence.
 
 ```
 Usage: ./scripts/run_all.sh [options]
@@ -190,9 +190,10 @@ Usage: ./scripts/run_all.sh [options]
 | `--tools`    | No       | `pip,uv,poetry`  | Comma-separated list of tools to benchmark |
 | `--modes`    | No       | `cold,warm,lock` | Comma-separated list of modes to benchmark |
 | `--runs`     | No       | `5`              | Number of repetitions per combination      |
-| `--cooldown` | No       | `60`             | Seconds between runs within a combination  |
-| `--pause`    | No       | `60`             | Seconds between tool x mode combinations   |
-| `--interval` | No       | unset            | Passed through to `run_multiple.sh --interval` |
+| `--cooldown` | No       | `60`             | Seconds between runs                       |
+| `--pause`    | No       | `0`              | Extra seconds when switching tool/mode     |
+| `--interval` | No       | unset            | Passed through to `run_once.sh --interval` |
+| `--seed`     | No       | unset            | Reproducible shuffle seed                  |
 
 **Examples:**
 
@@ -200,8 +201,8 @@ Usage: ./scripts/run_all.sh [options]
 # Run all 9 combinations with 5 runs each (defaults)
 ./scripts/run_all.sh
 
-# 30 runs per combination
-./scripts/run_all.sh --runs 30
+# 30 runs per combination with reproducible shuffling
+./scripts/run_all.sh --runs 30 --seed 42
 
 # Only pip and uv, cold and warm modes
 ./scripts/run_all.sh --tools pip,uv --modes cold,warm
@@ -269,6 +270,10 @@ Each run produces three files in `results/`:
 2. **`<tool>_<mode>_<os>_<arch>_<timestamp>.cmd.log`** — stdout/stderr of the package-manager command.
 
 3. **`<tool>_<mode>_<os>_<arch>_<timestamp>.meta.csv`** — per-run metadata (`wall_clock_s`, `exit_code`, and filenames) for analysis and validation.
+
+When using `run_all.sh`, an additional schedule file is emitted:
+
+4. **`schedule_<timestamp>.csv`** — shuffled run order (`run_index`, `tool`, `mode`) for reproducibility and audit trails.
 
 ---
 
