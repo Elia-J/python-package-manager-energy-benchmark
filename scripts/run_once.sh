@@ -197,6 +197,23 @@ else
   fi
 fi
 
+# -------- Warm-cache priming (unmeasured) --------
+# To keep warm runs independent from shuffled ordering, every warm run primes the
+# tool cache first, then removes .venv so the measured command still performs an install.
+if [[ "$MODE" == "warm" ]]; then
+  echo "Priming cache for warm run (unmeasured)..."
+  set +e
+  eval "$CMD"
+  prime_exit=$?
+  set -e
+  if [[ "$prime_exit" -ne 0 ]]; then
+    echo "ERROR: warm-cache priming failed with exit code $prime_exit"
+    exit "$prime_exit"
+  fi
+  rm -rf .venv
+  "$PYTHON_BIN" -m venv .venv
+fi
+
 echo "Running: $CMD"
 
 run_start_s="$(date +%s)"

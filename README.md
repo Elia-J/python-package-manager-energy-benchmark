@@ -60,7 +60,7 @@ The goal is to provide reproducible, quantitative data on how much energy each t
 
 ## How It Works
 
-1. **Prepare the environment** — depending on the mode, the script creates a fresh virtual environment and/or purges caches.
+1. **Prepare the environment** — depending on the mode, the script creates a fresh virtual environment and/or purges caches. For `warm`, it performs one unmeasured install first to pre-fill cache, then recreates `.venv` before the measured run.
 2. **Wrap with EnergiBridge** — the package-manager command runs inside EnergiBridge, which samples hardware sensors at a configurable interval (default: 100 ms).
 3. **Collect results** — a timestamped CSV is written to `results/` with columns for power, CPU metrics, memory, etc. A companion `.cmd.log` captures the command's stdout/stderr.
 4. **Cool down** — the script waits (default: 60 s between repeated runs) to let the system return to baseline before the next run.
@@ -247,7 +247,7 @@ For Windows users, PowerShell wrapper scripts delegate execution to WSL.
 | Mode       | What happens                                                                                | Measures                                               |
 | ---------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
 | **`cold`** | Purges package cache + deletes `.venv` → full download and install from scratch             | Worst-case energy: network + resolve + build + install |
-| **`warm`** | Deletes `.venv` but **keeps** cache → installs from local cache                             | Install-only energy (no network)                       |
+| **`warm`** | Deletes `.venv`, runs one **unmeasured** install to pre-fill cache, deletes `.venv` again, then measures install from local cache | Install-only energy with stable warm-cache precondition |
 | **`lock`** | Generates/resolves a lock file without installing (`pip-compile`, `uv lock`, `poetry lock`) | Dependency resolution energy                           |
 
 ---
