@@ -11,6 +11,7 @@ param (
 
     [int]$Cooldown = 60,
 
+    [ValidateRange(200, 2147483647)]
     [int]$Interval = 200,
 
     [string]$PythonBin = "python3.14"

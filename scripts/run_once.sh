@@ -7,6 +7,7 @@ RESULTS_DIR="results"
 PYTHON_BIN="${PYTHON_BIN:-python3.14}"
 INTERVAL=200
 COOLDOWN=0
+LOCK_WORKDIR=""
 
 TOOL=""
 MODE=""
@@ -34,8 +35,8 @@ done
 
 [[ -z "$TOOL" || -z "$MODE" ]] && usage
 
-if ! [[ "$INTERVAL" =~ ^[0-9]+$ ]] || [[ "$INTERVAL" -le 0 ]]; then
-  echo "ERROR: --interval must be a positive integer"
+if ! [[ "$INTERVAL" =~ ^[0-9]+$ ]] || [[ "$INTERVAL" -lt 200 ]]; then
+  echo "ERROR: --interval must be an integer >= 200"
   exit 1
 fi
 
@@ -48,6 +49,13 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 BIN_DIR="$ROOT_DIR/bin"
+
+cleanup() {
+  if [[ -n "$LOCK_WORKDIR" && -d "$LOCK_WORKDIR" ]]; then
+    rm -rf "$LOCK_WORKDIR"
+  fi
+}
+trap cleanup EXIT
 
 # -------- Detect OS/arch --------
 detect_os() {
@@ -155,10 +163,6 @@ if [[ "$MODE" == "cold" || "$MODE" == "warm" ]]; then
   rm -rf .venv
 fi
 
-if [[ "$MODE" == "lock" ]]; then
-  rm -f poetry.lock uv.lock requirements.lock
-fi
-
 if [[ "$MODE" == "cold" ]]; then
   if [[ "$TOOL" == "pip" ]]; then
     pip cache purge || true
@@ -173,13 +177,20 @@ fi
 CMD=""
 
 if [[ "$MODE" == "lock" ]]; then
+  LOCK_WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/pm-lock-XXXXXX")"
+
   if [[ "$TOOL" == "pip" ]]; then
     [[ -f "requirements.in" ]] || { echo "ERROR: workload/requirements.in missing"; exit 1; }
-    CMD="pip-compile requirements.in --output-file requirements.lock"
+    cp requirements.in "$LOCK_WORKDIR/"
+    CMD="cd \"$LOCK_WORKDIR\" && pip-compile requirements.in --strip-extras --output-file requirements.lock"
   elif [[ "$TOOL" == "uv" ]]; then
-    CMD="uv lock"
+    [[ -f "pyproject.toml" ]] || { echo "ERROR: workload/pyproject.toml missing"; exit 1; }
+    cp pyproject.toml "$LOCK_WORKDIR/"
+    CMD="cd \"$LOCK_WORKDIR\" && uv lock"
   elif [[ "$TOOL" == "poetry" ]]; then
-    CMD="poetry lock"
+    [[ -f "pyproject.toml" ]] || { echo "ERROR: workload/pyproject.toml missing"; exit 1; }
+    cp pyproject.toml "$LOCK_WORKDIR/"
+    CMD="cd \"$LOCK_WORKDIR\" && poetry lock"
   fi
 else
   "$PYTHON_BIN" -m venv .venv
