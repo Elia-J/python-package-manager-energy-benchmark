@@ -1,0 +1,2 @@
+tool,mode,os,arch,timestamp,interval_arg,wall_clock_s,exit_code,csv_file,cmdlog_file
+poetry,cold,windows,x86_64,20260226_155548,4000,35,0,poetry_cold_windows_x86_64_20260226_155548.csv,poetry_cold_windows_x86_64_20260226_155548.cmd.log

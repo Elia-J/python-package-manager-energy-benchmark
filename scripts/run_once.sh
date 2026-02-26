@@ -4,17 +4,19 @@ set -euo pipefail
 # -------- Defaults --------
 WORKDIR="workload"
 RESULTS_DIR="results"
-PYTHON_BIN="${PYTHON_BIN:-python}"
-INTERVAL_US=100000   # energibridge -i is microseconds; 100000us = 100ms
-COOLDOWN=10
+PYTHON_BIN="${PYTHON_BIN:-python3.14}"
+INTERVAL=200
+COOLDOWN=0
+LOCK_WORKDIR=""
+LOCK_PRIME_WORKDIR=""
 
 TOOL=""
 MODE=""
 
 usage() {
-  echo "Usage: ./scripts/run_once.sh --tool [pip|uv|poetry] --mode [cold|warm|lock]"
+  echo "Usage: ./scripts/run_once.sh --tool [pip|uv|poetry] --mode [cold|warm|lock] [--interval N]"
   echo "Env vars:"
-  echo "  PYTHON_BIN=python3.11   (optional)"
+  echo "  PYTHON_BIN=python3.14   (optional)"
   exit 1
 }
 
@@ -26,7 +28,7 @@ while [[ $# -gt 0 ]]; do
     --python) PYTHON_BIN="$2"; shift 2 ;;
     --workdir) WORKDIR="$2"; shift 2 ;;
     --results) RESULTS_DIR="$2"; shift 2 ;;
-    --interval-us) INTERVAL_US="$2"; shift 2 ;;
+    --interval) INTERVAL="$2"; shift 2 ;;
     --cooldown) COOLDOWN="$2"; shift 2 ;;
     *) usage ;;
   esac
@@ -34,10 +36,30 @@ done
 
 [[ -z "$TOOL" || -z "$MODE" ]] && usage
 
+if ! [[ "$INTERVAL" =~ ^[0-9]+$ ]] || [[ "$INTERVAL" -lt 200 ]]; then
+  echo "ERROR: --interval must be an integer >= 200"
+  exit 1
+fi
+
+if ! [[ "$COOLDOWN" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: --cooldown must be a non-negative integer"
+  exit 1
+fi
+
 # -------- Paths --------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 BIN_DIR="$ROOT_DIR/bin"
+
+cleanup() {
+  if [[ -n "$LOCK_WORKDIR" && -d "$LOCK_WORKDIR" ]]; then
+    rm -rf "$LOCK_WORKDIR"
+  fi
+  if [[ -n "$LOCK_PRIME_WORKDIR" && -d "$LOCK_PRIME_WORKDIR" ]]; then
+    rm -rf "$LOCK_PRIME_WORKDIR"
+  fi
+}
+trap cleanup EXIT
 
 # -------- Detect OS/arch --------
 detect_os() {
@@ -127,11 +149,15 @@ venv_pip() {
 mkdir -p "$ROOT_DIR/$RESULTS_DIR"
 
 timestamp="$(date +"%Y%m%d_%H%M%S")"
-outfile="$ROOT_DIR/$RESULTS_DIR/${TOOL}_${MODE}_${OS}_${ARCH}_${timestamp}.csv"
+run_id="${TOOL}_${MODE}_${OS}_${ARCH}_${timestamp}"
+outfile="$ROOT_DIR/$RESULTS_DIR/${run_id}.csv"
+cmdlog="$ROOT_DIR/$RESULTS_DIR/${run_id}.cmd.log"
+metafile="$ROOT_DIR/$RESULTS_DIR/${run_id}.meta.csv"
 
 echo "Platform:     $OS/$ARCH"
 echo "Energibridge: $ENERGIBRIDGE_BIN"
 echo "Output:       $outfile"
+echo "Interval:     $INTERVAL"
 
 # -------- Workdir --------
 cd "$ROOT_DIR/$WORKDIR"
@@ -139,10 +165,6 @@ cd "$ROOT_DIR/$WORKDIR"
 # -------- Cleanup --------
 if [[ "$MODE" == "cold" || "$MODE" == "warm" ]]; then
   rm -rf .venv
-fi
-
-if [[ "$MODE" == "lock" ]]; then
-  rm -f poetry.lock uv.lock requirements.lock
 fi
 
 if [[ "$MODE" == "cold" ]]; then
@@ -157,15 +179,30 @@ fi
 
 # -------- Select command --------
 CMD=""
+PRIME_CMD=""
 
 if [[ "$MODE" == "lock" ]]; then
+  LOCK_PRIME_WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/pm-lock-prime-XXXXXX")"
+  LOCK_WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/pm-lock-XXXXXX")"
+
   if [[ "$TOOL" == "pip" ]]; then
     [[ -f "requirements.in" ]] || { echo "ERROR: workload/requirements.in missing"; exit 1; }
-    CMD="pip-compile requirements.in --output-file requirements.lock"
+    cp requirements.in "$LOCK_PRIME_WORKDIR/"
+    cp requirements.in "$LOCK_WORKDIR/"
+    PRIME_CMD="cd \"$LOCK_PRIME_WORKDIR\" && pip-compile requirements.in --strip-extras --output-file requirements.lock"
+    CMD="cd \"$LOCK_WORKDIR\" && pip-compile requirements.in --strip-extras --output-file requirements.lock"
   elif [[ "$TOOL" == "uv" ]]; then
-    CMD="uv lock"
+    [[ -f "pyproject.toml" ]] || { echo "ERROR: workload/pyproject.toml missing"; exit 1; }
+    cp pyproject.toml "$LOCK_PRIME_WORKDIR/"
+    cp pyproject.toml "$LOCK_WORKDIR/"
+    PRIME_CMD="cd \"$LOCK_PRIME_WORKDIR\" && uv lock"
+    CMD="cd \"$LOCK_WORKDIR\" && uv lock"
   elif [[ "$TOOL" == "poetry" ]]; then
-    CMD="poetry lock"
+    [[ -f "pyproject.toml" ]] || { echo "ERROR: workload/pyproject.toml missing"; exit 1; }
+    cp pyproject.toml "$LOCK_PRIME_WORKDIR/"
+    cp pyproject.toml "$LOCK_WORKDIR/"
+    PRIME_CMD="cd \"$LOCK_PRIME_WORKDIR\" && poetry lock"
+    CMD="cd \"$LOCK_WORKDIR\" && poetry lock"
   fi
 else
   "$PYTHON_BIN" -m venv .venv
@@ -183,15 +220,85 @@ else
   fi
 fi
 
+# -------- Warm metadata-cache priming for lock mode (unmeasured) --------
+if [[ "$MODE" == "lock" ]]; then
+  echo "Priming metadata cache for lock run (unmeasured)..."
+  set +e
+  eval "$PRIME_CMD"
+  prime_exit=$?
+  set -e
+  if [[ "$prime_exit" -ne 0 ]]; then
+    echo "ERROR: lock-mode priming failed with exit code $prime_exit"
+    exit "$prime_exit"
+  fi
+fi
+
+# -------- Warm-cache priming (unmeasured) --------
+# To keep warm runs independent from shuffled ordering, every warm run primes the
+# tool cache first, then removes .venv so the measured command still performs an install.
+if [[ "$MODE" == "warm" ]]; then
+  echo "Priming cache for warm run (unmeasured)..."
+  set +e
+  eval "$CMD"
+  prime_exit=$?
+  set -e
+  if [[ "$prime_exit" -ne 0 ]]; then
+    echo "ERROR: warm-cache priming failed with exit code $prime_exit"
+    exit "$prime_exit"
+  fi
+  rm -rf .venv
+  "$PYTHON_BIN" -m venv .venv
+fi
+
 echo "Running: $CMD"
 
-cmdlog="$ROOT_DIR/$RESULTS_DIR/${TOOL}_${MODE}_${OS}_${ARCH}_${timestamp}.cmd.log"
+run_start_s="$(date +%s)"
 
+# Use an explicit shell path on Windows so EnergiBridge does not resolve to
+# the WSL launcher (C:\Windows\System32\bash.exe).
+SHELL_BIN="bash"
+if [[ "$OS" == "windows" ]]; then
+  command -v bash >/dev/null 2>&1 || { echo "ERROR: bash not found in PATH"; exit 1; }
+  if command -v cygpath >/dev/null 2>&1; then
+    SHELL_BIN="$(cygpath -w "$(command -v bash)")"
+  else
+    SHELL_BIN="$(command -v bash)"
+  fi
+fi
+
+set +e
 "$ENERGIBRIDGE_BIN" \
-  -i "$INTERVAL_US" \
+  -i "$INTERVAL" \
   -c "$cmdlog" \
-  -- bash -c "$CMD" \
+  -- "$SHELL_BIN" -lc "$CMD" \
   > "$outfile"
+command_exit=$?
+set -e
 
-echo "Run complete. Cooling down ${COOLDOWN}s..."
-sleep "$COOLDOWN"
+run_end_s="$(date +%s)"
+wall_clock_s=$((run_end_s - run_start_s))
+
+printf "tool,mode,os,arch,timestamp,interval_arg,wall_clock_s,exit_code,csv_file,cmdlog_file\n" > "$metafile"
+printf "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n" \
+  "$TOOL" \
+  "$MODE" \
+  "$OS" \
+  "$ARCH" \
+  "$timestamp" \
+  "$INTERVAL" \
+  "$wall_clock_s" \
+  "$command_exit" \
+  "$(basename "$outfile")" \
+  "$(basename "$cmdlog")" >> "$metafile"
+
+if [[ "$command_exit" -ne 0 ]]; then
+  echo "ERROR: benchmark command failed with exit code $command_exit"
+  exit "$command_exit"
+fi
+
+if [[ "$COOLDOWN" -gt 0 ]]; then
+  echo "Run complete. Cooling down ${COOLDOWN}s..."
+  sleep "$COOLDOWN"
+else
+  echo "Run complete."
+fi

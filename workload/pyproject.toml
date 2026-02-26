@@ -5,6 +5,8 @@ description = "Workload for energy benchmarking"
 requires-python = ">=3.10,<=3.14.2"
 dependencies = [
     "apache-airflow[celery]==2.7.1",
+    "certifi==2026.2.25",
+    "grpcio!=1.78.1",
 ]
 
 [tool.poetry]
@@ -16,6 +18,8 @@ authors = ["benchmark"]
 [tool.poetry.dependencies]
 python = ">=3.10,<=3.14.2"
 apache-airflow = {version = "==2.7.1", extras = ["celery"]}
+certifi = "==2026.2.25"
+grpcio = "!=1.78.1"
 
 [build-system]
 requires = ["poetry-core"]

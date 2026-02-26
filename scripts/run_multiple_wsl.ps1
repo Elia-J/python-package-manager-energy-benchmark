@@ -9,7 +9,12 @@ param (
 
     [int]$Runs = 5,
 
-    [int]$Cooldown = 5
+    [int]$Cooldown = 60,
+
+    [ValidateRange(200, 2147483647)]
+    [int]$Interval = 200,
+
+    [string]$PythonBin = "python3.14"
 )
 
 # --------------------------------------------------
@@ -26,6 +31,8 @@ Write-Host "Tool:      $Tool"
 Write-Host "Mode:      $Mode"
 Write-Host "Runs:      $Runs"
 Write-Host "Cooldown:  $Cooldown"
+Write-Host "Interval:  $Interval"
+Write-Host "Python:    $PythonBin"
 Write-Host "========================================"
 
 # --------------------------------------------------
@@ -50,7 +57,9 @@ wsl bash -c "
         --tool $Tool \
         --mode $Mode \
         --runs $Runs \
-        --cooldown $Cooldown
+        --cooldown $Cooldown \
+        --interval $Interval \
+        --python $PythonBin
 "
 
 if ($LASTEXITCODE -ne 0) {

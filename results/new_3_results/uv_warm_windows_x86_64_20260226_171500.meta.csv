@@ -1,0 +1,2 @@
+tool,mode,os,arch,timestamp,interval_arg,wall_clock_s,exit_code,csv_file,cmdlog_file
+uv,warm,windows,x86_64,20260226_171500,4000,5,0,uv_warm_windows_x86_64_20260226_171500.csv,uv_warm_windows_x86_64_20260226_171500.cmd.log

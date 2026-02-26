@@ -4,10 +4,12 @@ set -euo pipefail
 TOOL=""
 MODE=""
 RUNS=5
-COOLDOWN=5
+COOLDOWN=60
+INTERVAL=""
+PYTHON_BIN="python3.14"
 
 usage() {
-  echo "Usage: $0 --tool <tool> --mode <mode> [--runs N] [--cooldown S]"
+  echo "Usage: $0 --tool <tool> --mode <mode> [--runs N] [--cooldown S] [--interval N] [--python BIN]"
   exit 1
 }
 
@@ -29,6 +31,14 @@ while [[ $# -gt 0 ]]; do
       COOLDOWN="$2"
       shift 2
       ;;
+    --interval)
+      INTERVAL="$2"
+      shift 2
+      ;;
+    --python)
+      PYTHON_BIN="$2"
+      shift 2
+      ;;
     *)
       usage
       ;;
@@ -44,6 +54,10 @@ echo "Tool:      $TOOL"
 echo "Mode:      $MODE"
 echo "Runs:      $RUNS"
 echo "Cooldown:  ${COOLDOWN}s"
+if [[ -n "$INTERVAL" ]]; then
+  echo "Interval:  $INTERVAL"
+fi
+echo "Python:    $PYTHON_BIN"
 echo "========================================"
 
 for ((i=1; i<=RUNS; i++)); do
@@ -51,7 +65,11 @@ for ((i=1; i<=RUNS; i++)); do
   echo "▶ Run $i / $RUNS"
   echo "----------------------------------------"
 
-  ./scripts/run_once.sh --tool "$TOOL" --mode "$MODE"
+  run_once_cmd=(./scripts/run_once.sh --tool "$TOOL" --mode "$MODE" --python "$PYTHON_BIN")
+  if [[ -n "$INTERVAL" ]]; then
+    run_once_cmd+=(--interval "$INTERVAL")
+  fi
+  "${run_once_cmd[@]}"
 
   if [[ "$i" -lt "$RUNS" ]]; then
     echo "Cooling down for ${COOLDOWN}s..."
