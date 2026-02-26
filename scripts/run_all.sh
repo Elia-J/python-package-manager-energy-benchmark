@@ -10,6 +10,7 @@ COOLDOWN=60
 PAUSE=0      # extra seconds when switching tool/mode combos
 INTERVAL=""
 SEED=""
+PYTHON_BIN="python3.14"
 
 usage() {
   cat <<EOF
@@ -23,6 +24,7 @@ Options:
   --pause    <S>           Extra seconds when switching tool/mode combos (default: 0)
   --interval <N>           EnergiBridge interval argument passed to run_once.sh
   --seed     <N>           Optional RNG seed for reproducible shuffle order
+  --python   <BIN>         Python interpreter for workload virtualenvs (default: python3.14)
   --help                   Show this help message
 
 Examples:
@@ -44,6 +46,7 @@ while [[ $# -gt 0 ]]; do
     --pause)    PAUSE="$2";       shift 2 ;;
     --interval) INTERVAL="$2";    shift 2 ;;
     --seed)     SEED="$2";        shift 2 ;;
+    --python)   PYTHON_BIN="$2";  shift 2 ;;
     --help)     usage ;;
     *)          echo "Unknown option: $1"; usage ;;
   esac
@@ -130,6 +133,7 @@ printf -- "- Modes:        %s\n" "$MODES"
 printf -- "- Runs/combo:   %s\n" "$RUNS"
 printf -- "- Cooldown:     %ss\n" "$COOLDOWN"
 printf -- "- Extra pause:  %ss (on combo switch)\n" "$PAUSE"
+printf -- "- Python:       %s\n" "$PYTHON_BIN"
 if [[ -n "$INTERVAL" ]]; then
   printf -- "- Interval arg: %s\n" "$INTERVAL"
 fi
@@ -152,7 +156,7 @@ for ((idx=0; idx<total_runs; idx++)); do
   echo "[$num/$total_runs] $tool x $mode"
   echo ""
 
-  run_once_cmd=("$RUN_ONCE" --tool "$tool" --mode "$mode")
+  run_once_cmd=("$RUN_ONCE" --tool "$tool" --mode "$mode" --python "$PYTHON_BIN")
   if [[ -n "$INTERVAL" ]]; then
     run_once_cmd+=(--interval "$INTERVAL")
   fi

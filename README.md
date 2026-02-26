@@ -63,7 +63,7 @@ The goal is to provide reproducible, quantitative data on how much energy each t
 1. **Prepare the environment** — depending on the mode, the script creates a fresh virtual environment and/or purges caches.
 2. **Wrap with EnergiBridge** — the package-manager command runs inside EnergiBridge, which samples hardware sensors at a configurable interval (default: 100 ms).
 3. **Collect results** — a timestamped CSV is written to `results/` with columns for power, CPU metrics, memory, etc. A companion `.cmd.log` captures the command's stdout/stderr.
-4. **Cool down** — the script waits (default: 10 s) to let the system return to baseline before the next run.
+4. **Cool down** — the script waits (default: 60 s between repeated runs) to let the system return to baseline before the next run.
 
 ---
 
@@ -71,7 +71,7 @@ The goal is to provide reproducible, quantitative data on how much energy each t
 
 | Requirement    | Notes                                                                                   |
 | -------------- | --------------------------------------------------------------------------------------- |
-| **Python 3.x** | With `venv` module support                                                              |
+| **Python 3.14.x** | With `venv` module support                                                           |
 | **pip**        | Comes with Python; needed for `--tool pip`                                              |
 | **uv**         | Install via `curl -LsSf https://astral.sh/uv/install.sh \| sh` — needed for `--tool uv` |
 | **poetry**     | Install via `pipx install poetry` — needed for `--tool poetry`                          |
@@ -119,7 +119,7 @@ Usage: ./scripts/run_once.sh --tool <tool> --mode <mode> [options]
 | --------------- | -------- | ---------- | -------------------------------------------------------------------- |
 | `--tool`        | Yes      | —          | Package manager to benchmark: `pip`, `uv`, or `poetry`               |
 | `--mode`        | Yes      | —          | Benchmark mode: `cold`, `warm`, or `lock`                            |
-| `--python`      | No       | `python`   | Python binary to use (e.g. `python3.11`)                             |
+| `--python`      | No       | `python3.14`   | Python binary to use (e.g. `python3.14`)                         |
 | `--workdir`     | No       | `workload` | Directory containing `requirements.txt` / `requirements.in`          |
 | `--results`     | No       | `results`  | Directory for output CSVs                                            |
 | `--interval`    | No       | `100`      | EnergiBridge `-i` interval argument (recommended starting point: `100` milliseconds) |
@@ -131,8 +131,8 @@ Usage: ./scripts/run_once.sh --tool <tool> --mode <mode> [options]
 # Warm pip install
 ./scripts/run_once.sh --tool pip --mode warm
 
-# Cold uv install with Python 3.11 and explicit interval
-./scripts/run_once.sh --tool uv --mode cold --python python3.11 --interval 100
+# Cold uv install with Python 3.14 and explicit interval
+./scripts/run_once.sh --tool uv --mode cold --python python3.14 --interval 100
 
 # Poetry lock resolution
 ./scripts/run_once.sh --tool poetry --mode lock
@@ -141,7 +141,7 @@ Usage: ./scripts/run_once.sh --tool <tool> --mode <mode> [options]
 You can also set the Python binary via environment variable:
 
 ```bash
-PYTHON_BIN=python3.11 ./scripts/run_once.sh --tool pip --mode warm
+PYTHON_BIN=python3.14 ./scripts/run_once.sh --tool pip --mode warm
 ```
 
 ---
@@ -161,6 +161,7 @@ Usage: ./scripts/run_multiple.sh --tool <tool> --mode <mode> [options]
 | `--runs`     | No       | `5`     | Number of repetitions                     |
 | `--cooldown` | No       | `60`    | Seconds between runs                      |
 | `--interval` | No       | unset   | Passed through to `run_once.sh --interval` |
+| `--python`   | No       | `python3.14` | Passed through to `run_once.sh --python` |
 
 **Examples:**
 
@@ -169,7 +170,7 @@ Usage: ./scripts/run_multiple.sh --tool <tool> --mode <mode> [options]
 ./scripts/run_multiple.sh --tool pip --mode warm --runs 10 --cooldown 15
 
 # 10 warm pip runs with explicit interval
-./scripts/run_multiple.sh --tool pip --mode warm --runs 10 --interval 100
+./scripts/run_multiple.sh --tool pip --mode warm --runs 10 --interval 100 --python python3.14
 
 # 5 cold poetry installs (defaults)
 ./scripts/run_multiple.sh --tool poetry --mode cold
@@ -194,6 +195,7 @@ Usage: ./scripts/run_all.sh [options]
 | `--pause`    | No       | `0`              | Extra seconds when switching tool/mode     |
 | `--interval` | No       | unset            | Passed through to `run_once.sh --interval` |
 | `--seed`     | No       | unset            | Reproducible shuffle seed                  |
+| `--python`   | No       | `python3.14`     | Passed through to `run_once.sh --python`   |
 
 **Examples:**
 
@@ -202,7 +204,7 @@ Usage: ./scripts/run_all.sh [options]
 ./scripts/run_all.sh
 
 # 30 runs per combination with reproducible shuffling
-./scripts/run_all.sh --runs 30 --seed 42
+./scripts/run_all.sh --runs 30 --seed 42 --python python3.14
 
 # Only pip and uv, cold and warm modes
 ./scripts/run_all.sh --tools pip,uv --modes cold,warm
@@ -220,13 +222,13 @@ For Windows users, PowerShell wrapper scripts delegate execution to WSL.
 **`run_once_wsl.ps1`**
 
 ```powershell
-.\scripts\run_once_wsl.ps1 -Tool pip -Mode warm
+.\scripts\run_once_wsl.ps1 -Tool pip -Mode warm -PythonBin python3.14
 ```
 
 **`run_multiple_wsl.ps1`**
 
 ```powershell
-.\scripts\run_multiple_wsl.ps1 -Tool uv -Mode cold -Runs 10 -Cooldown 10
+.\scripts\run_multiple_wsl.ps1 -Tool uv -Mode cold -Runs 10 -Cooldown 10 -PythonBin python3.14
 ```
 
 | Parameter   | Required | Default | Description               |
@@ -236,6 +238,7 @@ For Windows users, PowerShell wrapper scripts delegate execution to WSL.
 | `-Runs`     | No       | `5`     | Number of repetitions     |
 | `-Cooldown` | No       | `60`    | Seconds between runs      |
 | `-Interval` | No       | `100`   | EnergiBridge interval argument |
+| `-PythonBin`| No       | `python3.14` | Python interpreter inside WSL |
 
 ---
 

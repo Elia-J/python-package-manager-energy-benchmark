@@ -5,7 +5,9 @@ param (
     [Parameter(Mandatory=$true)]
     [string]$Mode,
 
-    [int]$Runs = 5
+    [int]$Runs = 5,
+
+    [string]$PythonBin = "python3.14"
 )
 
 # Check WSL availability
@@ -18,6 +20,7 @@ Write-Host "Launching benchmark inside WSL..."
 Write-Host "Tool: $Tool"
 Write-Host "Mode: $Mode"
 Write-Host "Runs: $Runs"
+Write-Host "Python: $PythonBin"
 
 # Convert Windows path to WSL path
 $ProjectPath = wsl wslpath -a (Get-Location)
@@ -26,5 +29,5 @@ $ProjectPath = wsl wslpath -a (Get-Location)
 wsl bash -c "
   cd '$ProjectPath' &&
   chmod +x scripts/run_multiple.sh &&
-  ./scripts/run_multiple.sh --tool $Tool --mode $Mode --runs $Runs
+  ./scripts/run_multiple.sh --tool $Tool --mode $Mode --runs $Runs --python $PythonBin
 "

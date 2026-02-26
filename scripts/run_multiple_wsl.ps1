@@ -11,7 +11,9 @@ param (
 
     [int]$Cooldown = 60,
 
-    [int]$Interval = 100
+    [int]$Interval = 100,
+
+    [string]$PythonBin = "python3.14"
 )
 
 # --------------------------------------------------
@@ -29,6 +31,7 @@ Write-Host "Mode:      $Mode"
 Write-Host "Runs:      $Runs"
 Write-Host "Cooldown:  $Cooldown"
 Write-Host "Interval:  $Interval"
+Write-Host "Python:    $PythonBin"
 Write-Host "========================================"
 
 # --------------------------------------------------
@@ -54,7 +57,8 @@ wsl bash -c "
         --mode $Mode \
         --runs $Runs \
         --cooldown $Cooldown \
-        --interval $Interval
+        --interval $Interval \
+        --python $PythonBin
 "
 
 if ($LASTEXITCODE -ne 0) {

@@ -4,7 +4,7 @@ set -euo pipefail
 # -------- Defaults --------
 WORKDIR="workload"
 RESULTS_DIR="results"
-PYTHON_BIN="${PYTHON_BIN:-python}"
+PYTHON_BIN="${PYTHON_BIN:-python3.14}"
 INTERVAL=100
 COOLDOWN=0
 
@@ -14,7 +14,7 @@ MODE=""
 usage() {
   echo "Usage: ./scripts/run_once.sh --tool [pip|uv|poetry] --mode [cold|warm|lock] [--interval N]"
   echo "Env vars:"
-  echo "  PYTHON_BIN=python3.11   (optional)"
+  echo "  PYTHON_BIN=python3.14   (optional)"
   exit 1
 }
 
