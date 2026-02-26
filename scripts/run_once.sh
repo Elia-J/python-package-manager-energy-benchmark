@@ -201,11 +201,23 @@ echo "Running: $CMD"
 
 run_start_s="$(date +%s)"
 
+# Use an explicit shell path on Windows so EnergiBridge does not resolve to
+# the WSL launcher (C:\Windows\System32\bash.exe).
+SHELL_BIN="bash"
+if [[ "$OS" == "windows" ]]; then
+  command -v bash >/dev/null 2>&1 || { echo "ERROR: bash not found in PATH"; exit 1; }
+  if command -v cygpath >/dev/null 2>&1; then
+    SHELL_BIN="$(cygpath -w "$(command -v bash)")"
+  else
+    SHELL_BIN="$(command -v bash)"
+  fi
+fi
+
 set +e
 "$ENERGIBRIDGE_BIN" \
   -i "$INTERVAL" \
   -c "$cmdlog" \
-  -- bash -c "$CMD" \
+  -- "$SHELL_BIN" -lc "$CMD" \
   > "$outfile"
 command_exit=$?
 set -e

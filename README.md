@@ -301,4 +301,5 @@ The scripts auto-detect your OS and architecture and select the correct binary.
 | `ERROR: pip-compile not found`                               | Install pip-tools: `pip install pip-tools` (needed for `--tool pip --mode lock`)         |
 | `ERROR: No energibridge binary found`                        | Your platform may not have a pre-built binary in `bin/`. Build EnergiBridge from source. |
 | WSL script fails on Windows                                  | Ensure WSL is installed (`wsl --install`) and a Linux distro is set up                   |
+| `execvpe(/bin/bash) failed` in Windows runs                  | Run from Git Bash (or PowerShell launching Git Bash); the scripts now force Git Bash for EnergiBridge subcommands. |
 | Results look wrong or empty                                  | Check the `.cmd.log` file for errors from the package manager itself                     |
