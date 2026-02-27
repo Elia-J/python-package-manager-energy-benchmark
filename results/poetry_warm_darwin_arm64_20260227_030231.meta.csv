@@ -1,0 +1,2 @@
+tool,mode,os,arch,timestamp,interval_arg,wall_clock_s,exit_code,csv_file,cmdlog_file
+poetry,warm,darwin,arm64,20260227_030231,200,4,0,poetry_warm_darwin_arm64_20260227_030231.csv,poetry_warm_darwin_arm64_20260227_030231.cmd.log

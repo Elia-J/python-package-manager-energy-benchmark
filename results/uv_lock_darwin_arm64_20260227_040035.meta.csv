@@ -1,0 +1,2 @@
+tool,mode,os,arch,timestamp,interval_arg,wall_clock_s,exit_code,csv_file,cmdlog_file
+uv,lock,darwin,arm64,20260227_040035,200,1,0,uv_lock_darwin_arm64_20260227_040035.csv,uv_lock_darwin_arm64_20260227_040035.cmd.log

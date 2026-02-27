@@ -1,0 +1,2 @@
+tool,mode,os,arch,timestamp,interval_arg,wall_clock_s,exit_code,csv_file,cmdlog_file
+pip,warm,darwin,arm64,20260227_020516,200,23,0,pip_warm_darwin_arm64_20260227_020516.csv,pip_warm_darwin_arm64_20260227_020516.cmd.log
