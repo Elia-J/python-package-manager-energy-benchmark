@@ -1,4 +1,4 @@
-# Python Package Manager Energy Benchmark
+﻿# Python Package Manager Energy Benchmark
 
 > Measure and compare the **energy consumption** of Python package managers ( **pip**, **uv**, and **poetry** ) during dependency installation and lock-file resolution.
 
@@ -14,6 +14,7 @@ pip version 25.3
 - [How It Works](#how-it-works)
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
+- [Reference Experiment Command](#reference-experiment-command)
 - [Scripts Reference](#scripts-reference)
   - [run_once.sh](#run_oncesh)
   - [run_multiple.sh](#run_multiplesh)
@@ -21,6 +22,7 @@ pip version 25.3
   - [WSL Scripts (Windows)](#wsl-scripts-windows)
 - [Benchmark Modes](#benchmark-modes)
 - [Output Format](#output-format)
+- [Analysis Environment](#analysis-environment)
 - [Supported Platforms](#supported-platforms)
 - [Troubleshooting](#troubleshooting)
 
@@ -28,7 +30,7 @@ pip version 25.3
 
 ## Overview
 
-This project benchmarks the energy usage of three Python package managers by installing a realistic, heavy workload ([Apache Airflow with Celery](workload/requirements.in) — ~500 transitive dependencies) while sampling hardware telemetry (CPU frequency, temperature, usage, system power, memory) via [EnergiBridge](https://github.com/tdurieux/EnergiBridge).
+This project benchmarks the energy usage of three Python package managers by installing a realistic, heavy workload ([Apache Airflow with Celery](workload/requirements.in) - 3 direct dependencies and 154 total pinned packages, i.e., 151 transitive) while sampling hardware telemetry (CPU frequency, temperature, usage, system power, memory) via [EnergiBridge](https://github.com/tdurieux/EnergiBridge).
 
 The goal is to provide reproducible, quantitative data on how much energy each tool consumes across different scenarios (cold install, warm install, lock-file resolution).
 
@@ -36,7 +38,7 @@ The goal is to provide reproducible, quantitative data on how much energy each t
 
 ## Repository Structure
 
-```
+```text
 .
 ├── bin/                          # Pre-built EnergiBridge binaries
 │   ├── energibridge-darwin-arm64
@@ -106,6 +108,17 @@ ls results/
 
 ---
 
+## Reference Experiment Command
+
+The 30-run dataset used for the report was generated with:
+
+```bash
+./scripts/run_all.sh --runs 30 --interval 200 --cooldown 60 --pause 30 --seed 42 --python python3.14
+```
+
+This means runs were globally shuffled with a fixed seed, with 60 seconds cooldown between runs and an extra 30 seconds when switching tool/mode combinations.
+
+---
 ## Scripts Reference
 
 ### `run_once.sh`
@@ -291,8 +304,35 @@ When using `run_all.sh`, an additional schedule file is emitted:
 
 4. **`schedule_<timestamp>.csv`** — shuffled run order (`run_index`, `tool`, `mode`) for reproducibility and audit trails.
 
+In the analysis notebook, run energy is computed as:
+
+`energy_j = sum(SYSTEM_POWER (Watts) * Delta_seconds)`
+
+where `Delta` is converted from milliseconds to seconds.
+
 ---
 
+## Analysis Environment
+
+Install analysis dependencies before running `analysis.ipynb`:
+
+```bash
+python -m pip install -r requirements-analysis.txt
+```
+
+The notebook reads result files from:
+
+```text
+results/Final results
+```
+
+and exports report figures to:
+
+```text
+plots/report_figures
+```
+
+---
 ## Supported Platforms
 
 | Platform                    | Binary                            | Script                                      |
@@ -316,3 +356,4 @@ The scripts auto-detect your OS and architecture and select the correct binary. 
 | WSL script fails on Windows                                  | Ensure WSL is installed (`wsl --install`) and a Linux distro is set up                                             |
 | `execvpe(/bin/bash) failed` in Windows runs                  | Run from Git Bash (or PowerShell launching Git Bash); the scripts now force Git Bash for EnergiBridge subcommands. |
 | Results look wrong or empty                                  | Check the `.cmd.log` file for errors from the package manager itself                                               |
+
